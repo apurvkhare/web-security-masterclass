@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>SecureBank Demo</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                max-width: 1000px;
+                margin: 0 auto;
+                padding: 20px;
+            }
+            .container {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 20px;
+            }
+            .demo-section {
+                margin-bottom: 30px;
+                padding: 20px;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+            }
+            .vulnerable {
+                background-color: #ffe6e6;
+            }
+            .secure {
+                background-color: #e6ffe6;
+            }
+            .balance {
+                font-size: 24px;
+                font-weight: bold;
+                margin: 20px 0;
+            }
+            .transaction {
+                padding: 10px;
+                margin: 5px 0;
+                background-color: #f5f5f5;
+                border-radius: 3px;
+            }
+            .warning {
+                color: red;
+                font-weight: bold;
+            }
+            form {
+                margin: 15px 0;
+            }
+            input[type='number'],
+            input[type='text'] {
+                width: 200px;
+                padding: 8px;
+                margin: 5px 0;
+            }
+            button {
+                padding: 8px 15px;
+                background-color: #007bff;
+                color: white;
+                border: none;
+                border-radius: 3px;
+                cursor: pointer;
+            }
+            button:hover {
+                background-color: #0056b3;
+            }
+            .login-section {
+                text-align: center;
+                margin: 50px auto;
+                max-width: 400px;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="login-section" class="login-section">
+            <h1>SecureBank Login</h1>
+            <form id="login-form" onsubmit="handleLogin(event)">
+                <div>
+                    <input
+                        type="text"
+                        id="username"
+                        placeholder="Username"
+                        required
+                    />
+                </div>
+                <div>
+                    <input
+                        type="password"
+                        id="password"
+                        placeholder="Password"
+                        required
+                    />
+                </div>
+                <button type="submit">Login</button>
+            </form>
+        </div>
+
+        <div id="bank-app" style="display: none">
+            <h1>SecureBank Demo</h1>
+            <p class="warning">
+                Warning: This page contains intentionally vulnerable
+                implementations for educational purposes!
+            </p>
+
+            <div class="container">
+                <!-- Vulnerable Implementation -->
+                <div class="demo-section vulnerable">
+                    <h2>Vulnerable Banking Interface</h2>
+                    <div class="balance">
+                        Balance: $<span id="unsafe-balance">1000.00</span>
+                    </div>
+
+                    <h3>Transfer Money (Unsafe)</h3>
+                    <form
+                        action="/api/unsafe/transfer"
+                        method="POST"
+                        id="unsafe-transfer"
+                    >
+                        <div>
+                            <input
+                                type="text"
+                                name="to"
+                                placeholder="Recipient"
+                                required
+                            />
+                        </div>
+                        <div>
+                            <input
+                                type="number"
+                                name="amount"
+                                placeholder="Amount"
+                                min="0.01"
+                                step="0.01"
+                                required
+                            />
+                        </div>
+                        <button type="submit">Transfer (Unsafe)</button>
+                    </form>
+
+                    <h3>Recent Transactions</h3>
+                    <div id="unsafe-transactions"></div>
+                </div>
+
+                <!-- Secure Implementation -->
+                <div class="demo-section secure">
+                    <h2>Secure Banking Interface</h2>
+                    <div class="balance">
+                        Balance: $<span id="safe-balance">1000.00</span>
+                    </div>
+
+                    <h3>Transfer Money (Safe)</h3>
+                    <form
+                        action="/api/safe/transfer"
+                        method="POST"
+                        id="safe-transfer"
+                    >
+                        <div>
+                            <input
+                                type="text"
+                                name="to"
+                                placeholder="Recipient"
+                                required
+                            />
+                        </div>
+                        <div>
+                            <input
+                                type="number"
+                                name="amount"
+                                placeholder="Amount"
+                                min="0.01"
+                                step="0.01"
+                                required
+                            />
+                        </div>
+                        <input type="hidden" name="_csrf" id="csrf-token" />
+                        <button type="submit">Transfer (Safe)</button>
+                    </form>
+
+                    <h3>Recent Transactions</h3>
+                    <div id="safe-transactions"></div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            const API_BASE = 'http://localhost:3000'
+            let csrfToken = ''
+
+            // Login handler
+            async function handleLogin(event) {
+                event.preventDefault()
+                const username = document.getElementById('username').value
+                const password = document.getElementById('password').value
+
+                try {
+                    const response = await fetch(`${API_BASE}/login`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ username, password }),
+                    })
+
+                    if (response.ok) {
+                        const data = await response.json()
+                        csrfToken = data.csrfToken
+                        document.getElementById('csrf-token').value = csrfToken
+                        showBankApp()
+                        loadBalances()
+                        loadTransactions()
+                    }
+                } catch (error) {
+                    console.error('Login error:', error)
+                }
+            }
+
+            // UI helpers
+            function showBankApp() {
+                document.getElementById('login-section').style.display = 'none'
+                document.getElementById('bank-app').style.display = 'block'
+            }
+
+            // Load account data
+            async function loadBalances() {
+                const unsafeResponse = await fetch(
+                    `${API_BASE}/api/unsafe/balance`,
+                    {
+                        credentials: 'include',
+                    }
+                )
+                const safeResponse = await fetch(
+                    `${API_BASE}/api/safe/balance`,
+                    {
+                        credentials: 'include',
+                        headers: { 'X-CSRF-Token': csrfToken },
+                    }
+                )
+
+                const unsafeData = await unsafeResponse.json()
+                const safeData = await safeResponse.json()
+
+                document.getElementById('unsafe-balance').textContent =
+                    unsafeData.balance.toFixed(2)
+                document.getElementById('safe-balance').textContent =
+                    safeData.balance.toFixed(2)
+            }
+
+            async function loadTransactions() {
+                const unsafeResponse = await fetch(
+                    `${API_BASE}/api/unsafe/transactions`,
+                    {
+                        credentials: 'include',
+                    }
+                )
+                const safeResponse = await fetch(
+                    `${API_BASE}/api/safe/transactions`,
+                    {
+                        credentials: 'include',
+                        headers: { 'X-CSRF-Token': csrfToken },
+                    }
+                )
+
+                const unsafeData = await unsafeResponse.json()
+                const safeData = await safeResponse.json()
+
+                document.getElementById('unsafe-transactions').innerHTML =
+                    unsafeData.transactions
+                        .map(
+                            t =>
+                                `<div class="transaction">To: ${
+                                    t.to
+                                }, Amount: $${t.amount.toFixed(2)}</div>`
+                        )
+                        .join('')
+                document.getElementById('safe-transactions').innerHTML =
+                    safeData.transactions
+                        .map(
+                            t =>
+                                `<div class="transaction">To: ${
+                                    t.to
+                                }, Amount: $${t.amount.toFixed(2)}</div>`
+                        )
+                        .join('')
+            }
+
+            // Form submissions
+            document
+                .getElementById('unsafe-transfer')
+                .addEventListener('submit', async e => {
+                    e.preventDefault()
+                    const formData = new FormData(e.target)
+                    await submitTransfer('/api/unsafe/transfer', formData)
+                })
+
+            document
+                .getElementById('safe-transfer')
+                .addEventListener('submit', async e => {
+                    e.preventDefault()
+                    const formData = new FormData(e.target)
+                    await submitTransfer('/api/safe/transfer', formData, true)
+                })
+
+            async function submitTransfer(endpoint, formData, secure = false) {
+                try {
+                    const headers = {
+                        'Content-Type': 'application/json',
+                    }
+
+                    if (secure) {
+                        headers['X-CSRF-Token'] = csrfToken
+                    }
+
+                    const response = await fetch(`${API_BASE}${endpoint}`, {
+                        method: 'POST',
+                        headers,
+                        credentials: 'include',
+                        body: JSON.stringify({
+                            to: formData.get('to'),
+                            amount: parseFloat(formData.get('amount')),
+                            _csrf: formData.get('_csrf'),
+                        }),
+                    })
+
+                    if (response.ok) {
+                        loadBalances()
+                        loadTransactions()
+                    }
+                } catch (error) {
+                    console.error('Transfer error:', error)
+                }
+            }
+        </script>
+    </body>
+</html>

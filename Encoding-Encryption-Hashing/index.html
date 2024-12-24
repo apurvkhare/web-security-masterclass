@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Security Demo: Encoding, Encryption & Hashing</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 20px;
+            }
+            .demo-section {
+                margin-bottom: 30px;
+                padding: 20px;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+            }
+            .result {
+                margin-top: 10px;
+                padding: 10px;
+                background-color: #f5f5f5;
+                border-radius: 3px;
+                word-break: break-all;
+            }
+            .error {
+                color: red;
+            }
+            .success {
+                color: green;
+            }
+            input[type='text'],
+            input[type='password'] {
+                width: 300px;
+                padding: 8px;
+                margin: 5px 0;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Security Demo: Encoding, Encryption & Hashing</h1>
+
+        <div class="demo-section">
+            <h2>1. Encoding Demo</h2>
+            <div>
+                <h3>Base64 Encoding</h3>
+                <input
+                    type="text"
+                    id="base64Input"
+                    placeholder="Enter text to encode"
+                />
+                <button onclick="demonstrateBase64()">Encode/Decode</button>
+                <div id="base64Result" class="result"></div>
+            </div>
+            <div>
+                <h3>URL Encoding</h3>
+                <input
+                    type="text"
+                    id="urlInput"
+                    placeholder="Enter text with special characters"
+                />
+                <button onclick="demonstrateUrlEncoding()">
+                    Encode/Decode
+                </button>
+                <div id="urlResult" class="result"></div>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2>2. Encryption Demo</h2>
+            <div>
+                <h3>Symmetric Encryption (AES)</h3>
+                <input
+                    type="text"
+                    id="encryptInput"
+                    placeholder="Enter text to encrypt"
+                />
+                <button onclick="demonstrateEncryption()">
+                    Encrypt/Decrypt
+                </button>
+                <div id="encryptResult" class="result"></div>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2>3. Password Hashing Demo</h2>
+            <div>
+                <h3>Register New Password</h3>
+                <input
+                    type="password"
+                    id="passwordInput"
+                    placeholder="Enter password"
+                />
+                <button onclick="hashPassword()">Hash Password</button>
+                <div id="hashResult" class="result"></div>
+            </div>
+            <div>
+                <h3>Verify Password</h3>
+                <input
+                    type="password"
+                    id="verifyInput"
+                    placeholder="Enter password to verify"
+                />
+                <button onclick="verifyPassword()">Verify</button>
+                <div id="verifyResult" class="result"></div>
+            </div>
+        </div>
+
+        <script>
+            const API_BASE = 'http://localhost:3000'
+
+            // Encoding Demos
+            function demonstrateBase64() {
+                const input = document.getElementById('base64Input').value
+                const resultDiv = document.getElementById('base64Result')
+
+                // Client-side Base64
+                const encoded = btoa(input)
+                const decoded = atob(encoded)
+
+                resultDiv.innerHTML = `
+                Original: ${input}<br>
+                Encoded: ${encoded}<br>
+                Decoded: ${decoded}
+            `
+            }
+
+            function demonstrateUrlEncoding() {
+                const input = document.getElementById('urlInput').value
+                const resultDiv = document.getElementById('urlResult')
+
+                const encoded = encodeURIComponent(input)
+                const decoded = decodeURIComponent(encoded)
+
+                resultDiv.innerHTML = `
+                Original: ${input}<br>
+                Encoded: ${encoded}<br>
+                Decoded: ${decoded}
+            `
+            }
+
+            // Encryption Demo
+            async function demonstrateEncryption() {
+                const input = document.getElementById('encryptInput').value
+                const resultDiv = document.getElementById('encryptResult')
+
+                try {
+                    const response = await fetch(`${API_BASE}/api/encrypt`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ text: input }),
+                    })
+                    const data = await response.json()
+
+                    resultDiv.innerHTML = `
+                    Original: ${input}<br>
+                    Encrypted: ${data.encrypted}<br>
+                    Decrypted: ${data.decrypted}
+                `
+                } catch (error) {
+                    resultDiv.innerHTML = `<span class="error">Error: ${error.message}</span>`
+                }
+            }
+
+            // Hashing Demos
+            async function hashPassword() {
+                const password = document.getElementById('passwordInput').value
+                const resultDiv = document.getElementById('hashResult')
+
+                try {
+                    const response = await fetch(`${API_BASE}/api/hash`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ password }),
+                    })
+                    const data = await response.json()
+
+                    resultDiv.innerHTML = `Hashed Password: ${data.hash}`
+                } catch (error) {
+                    resultDiv.innerHTML = `<span class="error">Error: ${error.message}</span>`
+                }
+            }
+
+            async function verifyPassword() {
+                const password = document.getElementById('verifyInput').value
+                const resultDiv = document.getElementById('verifyResult')
+
+                try {
+                    const response = await fetch(`${API_BASE}/api/verify`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ password }),
+                    })
+                    const data = await response.json()
+
+                    resultDiv.innerHTML = `
+                    <span class="${data.match ? 'success' : 'error'}">
+                        ${
+                            data.match
+                                ? 'Password matches!'
+                                : 'Password does not match!'
+                        }
+                    </span>
+                `
+                } catch (error) {
+                    resultDiv.innerHTML = `<span class="error">Error: ${error.message}</span>`
+                }
+            }
+        </script>
+    </body>
+</html>

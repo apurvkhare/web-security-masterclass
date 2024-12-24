@@ -1,0 +1,25 @@
+<!--
+ * Vulnerable IFrame Implementation
+ * 
+ * This example demonstrates common IFrame security issues:
+ * 1. Missing X-Frame-Options header
+ * 2. No Content Security Policy
+ * 3. Vulnerable to clickjacking
+ * 4. Cross-origin resource sharing risks
+ -->
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Vulnerable IFrame Example</title>
+    </head>
+    <body>
+        <!-- BAD: Unsecured iframe -->
+        <iframe src="http://external-site.com/content"></iframe>
+
+        <!-- BAD: No sandbox attributes -->
+        <iframe src="user-content.html"></iframe>
+
+        <!-- BAD: Allows all origins -->
+        <iframe src="payment-form.html" allow="*"></iframe>
+    </body>
+</html>

@@ -1,0 +1,45 @@
+<!--
+ * Secure IFrame Implementation
+ * 
+ * This example demonstrates IFrame security best practices:
+ * 1. Proper sandbox restrictions
+ * 2. Content Security Policy
+ * 3. Clickjacking protection
+ * 4. Secure cross-origin policies
+ * 
+ * To test:
+ * 1. Serve this file with proper headers:
+ *    Content-Security-Policy: frame-src 'self' https://trusted-site.com
+ *    X-Frame-Options: SAMEORIGIN
+ * 
+ * 2. Try embedding in another domain (should fail)
+ * 3. Verify sandbox restrictions work
+ -->
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Secure IFrame Example</title>
+        <meta
+            http-equiv="Content-Security-Policy"
+            content="frame-src 'self' https://trusted-site.com"
+        />
+    </head>
+    <body>
+        <!-- GOOD: Secured iframe with sandbox -->
+        <iframe
+            src="trusted-content.html"
+            sandbox="allow-scripts allow-same-origin"
+            referrerpolicy="no-referrer"
+            loading="lazy"
+            width="600"
+            height="400"
+        ></iframe>
+
+        <!-- GOOD: Specific feature permissions -->
+        <iframe
+            src="https://trusted-site.com/widget"
+            allow="camera 'none'; microphone 'none'; geolocation 'none'"
+            sandbox="allow-scripts"
+        ></iframe>
+    </body>
+</html>

@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>XSS Security Demo</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 20px;
+            }
+            .demo-section {
+                margin-bottom: 30px;
+                padding: 20px;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+            }
+            .vulnerable {
+                background-color: #ffe6e6;
+            }
+            .secure {
+                background-color: #e6ffe6;
+            }
+            .result {
+                margin-top: 10px;
+                padding: 10px;
+                background-color: #f5f5f5;
+                border-radius: 3px;
+            }
+            .comments {
+                margin-top: 20px;
+            }
+            .comment {
+                padding: 10px;
+                margin: 5px 0;
+                background-color: #f9f9f9;
+                border-radius: 3px;
+            }
+            input[type='text'],
+            textarea {
+                width: 100%;
+                padding: 8px;
+                margin: 5px 0;
+            }
+            .warning {
+                color: red;
+                font-weight: bold;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>XSS Security Demo</h1>
+        <p class="warning">
+            Warning: This page contains intentionally vulnerable code for
+            educational purposes!
+        </p>
+
+        <!-- Reflected XSS Demo -->
+        <div class="demo-section">
+            <h2>1. Reflected XSS Demo</h2>
+
+            <div class="vulnerable">
+                <h3>Vulnerable Implementation</h3>
+                <form action="/search-unsafe" method="GET">
+                    <input
+                        type="text"
+                        name="q"
+                        placeholder="Enter search term"
+                    />
+                    <button type="submit">Search (Unsafe)</button>
+                </form>
+                <div id="unsafe-result" class="result"></div>
+            </div>
+
+            <div class="secure">
+                <h3>Secure Implementation</h3>
+                <form action="/search-safe" method="GET">
+                    <input
+                        type="text"
+                        name="q"
+                        placeholder="Enter search term"
+                    />
+                    <button type="submit">Search (Safe)</button>
+                </form>
+                <div id="safe-result" class="result"></div>
+            </div>
+        </div>
+
+        <!-- Stored XSS Demo -->
+        <div class="demo-section">
+            <h2>2. Stored XSS Demo</h2>
+
+            <div class="vulnerable">
+                <h3>Vulnerable Implementation</h3>
+                <textarea
+                    id="unsafe-comment"
+                    placeholder="Enter your comment"
+                ></textarea>
+                <button onclick="postCommentUnsafe()">
+                    Post Comment (Unsafe)
+                </button>
+                <div id="unsafe-comments" class="comments"></div>
+            </div>
+
+            <div class="secure">
+                <h3>Secure Implementation</h3>
+                <textarea
+                    id="safe-comment"
+                    placeholder="Enter your comment"
+                ></textarea>
+                <button onclick="postCommentSafe()">Post Comment (Safe)</button>
+                <div id="safe-comments" class="comments"></div>
+            </div>
+        </div>
+
+        <!-- DOM-based XSS Demo -->
+        <div class="demo-section">
+            <h2>3. DOM-based XSS Demo</h2>
+
+            <div class="vulnerable">
+                <h3>Vulnerable Implementation</h3>
+                <input
+                    type="text"
+                    id="unsafe-name"
+                    placeholder="Enter your name"
+                />
+                <button onclick="displayNameUnsafe()">
+                    Display Name (Unsafe)
+                </button>
+                <div id="unsafe-greeting" class="result"></div>
+            </div>
+
+            <div class="secure">
+                <h3>Secure Implementation</h3>
+                <input
+                    type="text"
+                    id="safe-name"
+                    placeholder="Enter your name"
+                />
+                <button onclick="displayNameSafe()">Display Name (Safe)</button>
+                <div id="safe-greeting" class="result"></div>
+            </div>
+        </div>
+
+        <script>
+            const API_BASE = 'http://localhost:3000'
+
+            // Reflected XSS helpers
+            async function performSearch(endpoint, resultId) {
+                const params = new URLSearchParams(window.location.search)
+                const query = params.get('q')
+                if (query) {
+                    try {
+                        const response = await fetch(
+                            `${API_BASE}${endpoint}?q=${query}`
+                        )
+                        const result = await response.text()
+                        document.getElementById(resultId).innerHTML = result
+                    } catch (error) {
+                        console.error('Search error:', error)
+                    }
+                }
+            }
+
+            // Stored XSS helpers
+            async function postCommentUnsafe() {
+                const comment = document.getElementById('unsafe-comment').value
+                await postComment(
+                    '/comments-unsafe',
+                    comment,
+                    'unsafe-comments'
+                )
+            }
+
+            async function postCommentSafe() {
+                const comment = document.getElementById('safe-comment').value
+                await postComment('/comments-safe', comment, 'safe-comments')
+            }
+
+            async function postComment(endpoint, comment, commentsId) {
+                try {
+                    await fetch(`${API_BASE}${endpoint}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ comment }),
+                    })
+                    await loadComments(
+                        endpoint.replace('comments-', 'get-comments-'),
+                        commentsId
+                    )
+                } catch (error) {
+                    console.error('Comment error:', error)
+                }
+            }
+
+            async function loadComments(endpoint, commentsId) {
+                try {
+                    const response = await fetch(`${API_BASE}${endpoint}`)
+                    const comments = await response.json()
+                    const container = document.getElementById(commentsId)
+                    container.innerHTML = comments
+                        .map(c => `<div class="comment">${c.text}</div>`)
+                        .join('')
+                } catch (error) {
+                    console.error('Load comments error:', error)
+                }
+            }
+
+            // DOM-based XSS helpers
+            function displayNameUnsafe() {
+                const name = document.getElementById('unsafe-name').value
+                document.getElementById(
+                    'unsafe-greeting'
+                ).innerHTML = `<h3>Hello, ${name}!</h3>`
+            }
+
+            function displayNameSafe() {
+                const name = document.getElementById('safe-name').value
+                const greeting = document.getElementById('safe-greeting')
+                greeting.textContent = ''
+
+                const h3 = document.createElement('h3')
+                h3.textContent = `Hello, ${name}!`
+                greeting.appendChild(h3)
+            }
+
+            // Initialize page
+            window.onload = () => {
+                performSearch('/search-unsafe', 'unsafe-result')
+                performSearch('/search-safe', 'safe-result')
+                loadComments('/get-comments-unsafe', 'unsafe-comments')
+                loadComments('/get-comments-safe', 'safe-comments')
+            }
+        </script>
+    </body>
+</html>

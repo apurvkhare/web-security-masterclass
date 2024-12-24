@@ -1,0 +1,120 @@
+<!--
+ * Clickjacking Attack Demonstration
+ * 
+ * This example shows:
+ * 1. How clickjacking attacks work
+ * 2. Why frame protection is important
+ * 3. How to test frame protections
+ * 
+ * To demonstrate:
+ * 1. Start a local server:
+ *    ```bash
+ *    python -m http.server 8080
+ *    ```
+ * 
+ * 2. Open attacker.html and observe:
+ *    - vulnerable.html can be framed
+ *    - protected.html cannot be framed
+ *    - Clickjacking overlay positioning
+ -->
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Clickjacking Attack Demo</title>
+        <style>
+            .overlay-button {
+                position: absolute;
+                top: 250px;
+                left: 150px;
+                padding: 10px 20px;
+                background: #3498db;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;
+                z-index: 1000;
+            }
+
+            .frame-container {
+                position: relative;
+                width: 800px;
+                height: 600px;
+                margin: 20px;
+                border: 2px solid red;
+            }
+
+            .vulnerable-frame {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                opacity: 0.5; /* Make frame visible for demo */
+            }
+
+            .attack-controls {
+                margin: 20px;
+                padding: 20px;
+                background: #f8f9fa;
+                border-radius: 5px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="attack-controls">
+            <h2>Clickjacking Attack Demonstration</h2>
+            <p>
+                This page demonstrates how clickjacking attacks work by
+                overlaying a legitimate-looking button over a hidden iframe.
+            </p>
+            <button onclick="toggleFrameVisibility()">
+                Toggle Frame Visibility
+            </button>
+        </div>
+
+        <!-- Attack on vulnerable page -->
+        <div class="frame-container">
+            <button class="overlay-button">Win a Prize!</button>
+            <iframe
+                class="vulnerable-frame"
+                src="vulnerable.html"
+                title="Vulnerable Page"
+            ></iframe>
+        </div>
+
+        <!-- Attempt attack on protected page -->
+        <div class="frame-container">
+            <button class="overlay-button">Click Here!</button>
+            <iframe
+                class="vulnerable-frame"
+                src="protected.html"
+                title="Protected Page"
+            ></iframe>
+        </div>
+
+        <script>
+            // Toggle iframe opacity to show/hide target
+            function toggleFrameVisibility() {
+                const frames = document.querySelectorAll('.vulnerable-frame')
+                frames.forEach(frame => {
+                    frame.style.opacity =
+                        frame.style.opacity === '0' ? '0.5' : '0'
+                })
+            }
+
+            // Log frame loading results
+            window.addEventListener('load', () => {
+                const frames = document.querySelectorAll('iframe')
+                frames.forEach(frame => {
+                    frame.addEventListener('load', () => {
+                        console.log(
+                            `Frame loaded: ${frame.title}`,
+                            `Content accessible:`,
+                            !frame.contentWindow.document
+                        )
+                    })
+                })
+            })
+        </script>
+    </body>
+</html>
