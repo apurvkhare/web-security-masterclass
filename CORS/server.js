@@ -6,17 +6,20 @@ const app = express()
 app.use(express.json())
 app.use(cookieParser())
 
+// Make sure to update this with the origin of your client app
+const CLIENT_ORIGIN = 'http://localhost:5500'
+
 // CORS configuration examples
 const corsConfig = {
     // Example 1: Simple CORS
     simple: (req, res, next) => {
-        res.header('Access-Control-Allow-Origin', '*')
+        res.header('Access-Control-Allow-Origin', CLIENT_ORIGIN)
         next()
     },
 
     // Example 2: Preflight
     preflight: (req, res, next) => {
-        res.header('Access-Control-Allow-Origin', 'http://localhost:5500')
+        res.header('Access-Control-Allow-Origin', CLIENT_ORIGIN)
         res.header(
             'Access-Control-Allow-Methods',
             'GET, POST, PUT, DELETE, OPTIONS'
@@ -34,7 +37,7 @@ const corsConfig = {
 
     // Example 3: Credentials
     credentials: (req, res, next) => {
-        res.header('Access-Control-Allow-Origin', 'http://localhost:5500')
+        res.header('Access-Control-Allow-Origin', CLIENT_ORIGIN)
         res.header('Access-Control-Allow-Credentials', 'true')
         res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         res.header('Access-Control-Allow-Headers', 'Content-Type')
@@ -51,7 +54,11 @@ app.get('/api/simple', corsConfig.simple, (req, res) => {
     res.json({ message: 'Simple CORS request successful' })
 })
 
-app.post('/api/preflight', corsConfig.preflight, (req, res) => {
+app.options('/api/cors-preflight', corsConfig.preflight);
+
+app.post('/api/cors-preflight', (req, res) => {
+    console.log('Received data:', req.body)
+    res.header('Access-Control-Allow-Origin', CLIENT_ORIGIN)
     res.json({
         message: 'Preflight CORS request successful',
         receivedData: req.body,
@@ -69,6 +76,7 @@ app.get('/api/credentials', corsConfig.credentials, (req, res) => {
 
 app.get('/api/error', (req, res) => {
     // No CORS headers - will cause an error
+    console.log('Received data:', req.body)
     res.json({ message: 'This should fail due to CORS' })
 })
 

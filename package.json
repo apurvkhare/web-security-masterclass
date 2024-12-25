@@ -1,0 +1,15 @@
+{
+  "name": "web-security",
+  "version": "1.0.0",
+  "description": "content and code for web security masterclass",
+  "main": "index.js",
+  "repository": "https://github.com/apurvkhare/web-security-masterclass.git",
+  "author": "apurvkhare <apurvkhare1@gmail.com>",
+  "license": "MIT",
+  "private": false,
+  "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "express": "^4.21.2",
+    "nodemon": "^3.1.9"
+  }
+}

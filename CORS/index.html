@@ -3,7 +3,7 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>CORS Demo</title>
+        <title>CORS Lab</title>
         <style>
             body {
                 font-family: Arial, sans-serif;
@@ -33,7 +33,7 @@
         </style>
     </head>
     <body>
-        <h1>CORS Demo</h1>
+        <h1>CORS Lab</h1>
 
         <div class="demo-section">
             <h2>1. Simple CORS Request</h2>
@@ -73,6 +73,7 @@
         </div>
 
         <script>
+            // Change this to the URL of your API server
             const API_BASE = 'http://localhost:3000'
 
             async function makeSimpleRequest() {
@@ -91,7 +92,7 @@
             async function makePreflightRequest() {
                 const resultDiv = document.getElementById('preflight-result')
                 try {
-                    const response = await fetch(`${API_BASE}/api/preflight`, {
+                    const response = await fetch(`${API_BASE}/api/cors-preflight`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
