@@ -46,24 +46,44 @@
             <div>
                 <h3>Base64 Encoding</h3>
                 <input
-                    type="text"
-                    id="base64Input"
+                    type="file"
+                    id="imageInput"
+                    accept="image/*"
                     placeholder="Enter text to encode"
                 />
                 <button onclick="demonstrateBase64()">Encode/Decode</button>
-                <div id="base64Result" class="result"></div>
+                <div id="base64Result" class="result">
+                    <div>
+                        <h3>Original Image</h3>
+                        <img id="originalImage" style="max-width: 300px" />
+                        <div>Size: <span id="originalSize"></span></div>
+                    </div>
+                    <div>
+                        <h3>Base64 Encoded</h3>
+                        <textarea
+                            id="base64Output"
+                            rows="4"
+                            readonly
+                        ></textarea>
+                        <div>Size: <span id="encodedSize"></span></div>
+                    </div>
+                    <div>
+                        <h3>Decoded Image</h3>
+                        <img id="decodedImage" style="max-width: 300px" />
+                    </div>
+                </div>
             </div>
             <div>
                 <h3>URL Encoding</h3>
                 <input
                     type="text"
-                    id="urlInput"
-                    placeholder="Enter text with special characters"
+                    id="urlParamInput"
+                    placeholder="Enter query param with special characters"
                 />
                 <button onclick="demonstrateUrlEncoding()">
                     Encode/Decode
                 </button>
-                <div id="urlResult" class="result"></div>
+                <div id="urlParamResult" class="result"></div>
             </div>
         </div>
 
@@ -80,6 +100,18 @@
                     Encrypt/Decrypt
                 </button>
                 <div id="encryptResult" class="result"></div>
+            </div>
+            <div>
+                <h3>Asymmetric Encryption (RSA)</h3>
+                <input
+                    type="text"
+                    id="encryptInput2"
+                    placeholder="Enter text to encrypt"
+                />
+                <button onclick="demonstrateAsymmetricEncryption()">
+                    Encrypt/Decrypt
+                </button>
+                <div id="encryptResult2" class="result"></div>
             </div>
         </div>
 
@@ -112,23 +144,36 @@
 
             // Encoding Demos
             function demonstrateBase64() {
-                const input = document.getElementById('base64Input').value
-                const resultDiv = document.getElementById('base64Result')
+                const file = document.getElementById('imageInput').files[0]
+                const reader = new FileReader()
 
-                // Client-side Base64
-                const encoded = btoa(input)
-                const decoded = atob(encoded)
+                reader.readAsDataURL(file)
 
-                resultDiv.innerHTML = `
-                Original: ${input}<br>
-                Encoded: ${encoded}<br>
-                Decoded: ${decoded}
-            `
+                reader.onload = function (e) {
+                    // Display original
+                    const original = document.getElementById('originalImage')
+                    original.src = e.target.result
+                    document.getElementById('originalSize').textContent = `${(
+                        file.size / 1024
+                    ).toFixed(2)} KB`
+
+                    // Show base64
+                    const base64 = e.target.result
+                    const base64Output = document.getElementById('base64Output')
+                    base64Output.value = base64
+                    document.getElementById('encodedSize').textContent = `${(
+                        base64.length / 1024
+                    ).toFixed(2)} KB`
+
+                    // Show decoded
+                    const decoded = document.getElementById('decodedImage')
+                    decoded.src = base64
+                }
             }
 
             function demonstrateUrlEncoding() {
-                const input = document.getElementById('urlInput').value
-                const resultDiv = document.getElementById('urlResult')
+                const input = document.getElementById('urlParamInput').value
+                const resultDiv = document.getElementById('urlParamResult')
 
                 const encoded = encodeURIComponent(input)
                 const decoded = decodeURIComponent(encoded)
@@ -154,9 +199,31 @@
                     const data = await response.json()
 
                     resultDiv.innerHTML = `
-                    Original: ${input}<br>
-                    Encrypted: ${data.encrypted}<br>
-                    Decrypted: ${data.decrypted}
+                    <b>Original:</b> ${input}<br><br>
+                    <b>Encrypted:</b> ${data.encrypted}<br><br>
+                    <b>Decrypted:</b> ${data.decrypted}
+                `
+                } catch (error) {
+                    resultDiv.innerHTML = `<span class="error">Error: ${error.message}</span>`
+                }
+            }
+
+            async function demonstrateAsymmetricEncryption() {
+                const input = document.getElementById('encryptInput2').value
+                const resultDiv = document.getElementById('encryptResult2')
+
+                try {
+                    const response = await fetch(`${API_BASE}/api/asymmetric-encrypt`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ text: input }),
+                    })
+                    const data = await response.json()
+
+                    resultDiv.innerHTML = `
+                    <b>Original:</b> ${input}<br><br>
+                    <b>Encrypted:</b> ${data.encrypted}<br><br>
+                    <b>Decrypted:</b> ${data.decrypted}
                 `
                 } catch (error) {
                     resultDiv.innerHTML = `<span class="error">Error: ${error.message}</span>`

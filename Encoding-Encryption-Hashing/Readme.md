@@ -1,46 +1,82 @@
 # Encoding, Encryption & Hashing
 
-## Table of Contents
+## Agenda
 
-1. [Basic Concepts](#basic-concepts)
-2. [Encoding](#encoding)
-3. [Encryption](#encryption)
-4. [Hashing](#hashing)
-5. [HTTPS](#https)
-6. [Best Practices](#best-practices)
-
-## Basic Concepts
-
-### Encoding vs Encryption vs Hashing
-
--   **Encoding**: Transforms data to ensure proper consumption. Not for security.
--   **Encryption**: Transforms data to keep it secret, with the ability to decrypt.
--   **Hashing**: One-way transformation of data into a fixed-size string.
+1. [Encoding](#encoding)
+2. [Encryption](#encryption)
+3. [Hashing](#hashing)
+4. [Comparison](#comparison)
 
 ## Encoding
 
+Encoding is a process of converting data from one format to another using a publicly available scheme.
+Encoding is used to ensure data is correctly consumed by different systems. It's reversible and doesn't require any secret key. _**It's designed for data compatibility**_.
+
+### Use Cases
+
+1. **Unicode Encoding** 
+
+    - Supporting multilingual applications and ensuring proper character display across different systems
+    
+    ```
+    Japanese "こんにちは" → U+3053 U+3093 U+306B U+3061 U+306F
+    ```
+
+
+2. **Binary to text encoding**
+
+    - Embedding binary data in JSON, storing binary data in databases that only support text
+
+    ```python
+    # Image attachment in email
+    Image bytes → "iVBORw0KGgoAAAANSUhEUgAAA..."
+
+    # Data URIs in HTML/CSS
+    <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAA...">
+    ```
+
+
+3. **URL Encoding**
+
+    - Encoding special characters in URLs to ensure proper transmission
+
+    ```
+    Space becomes %20
+    + becomes %2B
+
+    Original URL: https://example.com/search?query=hello world&type=all
+    Encoded URL: https://example.com/search?query=hello%20world&type=all
+    ```
+
+4. **QR Codes**
+
+    - Encoding data in QR codes for easy scanning and retrieval
+
+    ```
+    https://example.com → [QR Code Pattern]
+    ```
+
+5. **Data Format Encoding**
+
+    - JSON, XML, CSV, etc., for data interchange between systems
+
+    ```json
+    {
+    "name": "John \"Johnny\" Smith",
+    "description": "Line 1\nLine 2"
+    }
+    ```
+
 ### Common Encoding Schemes
 
-1. **Base64**
-
-    - Used for binary data in text-based protocols
-    - Not for security, easily reversible
-
-    ```javascript
-    // Encoding
-    const encoded = Buffer.from('Hello').toString('base64')
-    // Decoding
-    const decoded = Buffer.from(encoded, 'base64').toString()
-    ```
-
-2. **URL Encoding**
-    - Converts special characters for URL safety
-    ```javascript
-    const encoded = encodeURIComponent('Hello World!')
-    const decoded = decodeURIComponent(encoded)
-    ```
+- UTF-8 for general text handling
+- Base64 for binary data in text systems
+- URL encoding for web addresses
+- HTML entities for web content
 
 ## Encryption
+
+Encryption is a security process that converts readable data (plaintext) into an unreadable format (ciphertext) using an algorithm and a key. _**It's designed for confidentiality**_.
 
 ### Types of Encryption
 
@@ -49,37 +85,109 @@
     - Same key for encryption and decryption
     - Faster but key distribution is challenging
 
-    ```javascript
-    const crypto = require('crypto')
-    const algorithm = 'aes-256-cbc'
-    const key = crypto.randomBytes(32)
-    const iv = crypto.randomBytes(16)
-    ```
-
 2. **Asymmetric Encryption**
     - Public key for encryption
     - Private key for decryption
     - Slower but better key distribution
-    ```javascript
-    const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', {
-        modulusLength: 2048,
-    })
-    ```
+
+### Encryption flow
+
+```mermaid
+sequenceDiagram
+    participant A as Tony
+    participant B as Steve
+
+    rect rgb(208, 42, 42)
+        Note over A,B: Symmetric Encryption Process
+        Note over A,B: Both parties must first securely share a secret key
+        A->>B: Secret Key Exchange (security risk)
+        Note over A: Generate plaintext<br/>Encrypt with secret key
+        A->>B: Send encrypted message
+        Note over B: Decrypt using<br/>same secret key
+        B->>A: Send encrypted response<br/>(using same secret key)
+        Note over A: Decrypt using<br/>same secret key
+    end
+
+    Note over A,B: ─────────────────────────
+
+    rect rgb(12, 117, 12)
+        Note over A,B: Asymmetric Encryption Process
+        Note over A,B: Generate key pair:<br/>public & private keys
+        A<<->>B: Share public key (can be done openly)
+        Note over A: Generate plaintext<br/>Encrypt with Steve's public key
+        A->>B: Send encrypted message
+        Note over B: Decrypt using<br/>private key
+        Note over B: Encrypt response<br/>with Tony's public key
+        B->>A: Send encrypted response
+        Note over A: Decrypt using<br/>private key
+    end
+
+```
+
+### Use Cases
+
+1. **Secure Communication**
+
+    - Allows secure message exchange between parties
+    - HTTPS, VPNs, secure messaging apps
+    - Best for: Client-server communication, API security
+
+2. **File Encryption**
+
+    - Uses AES-256-GCM for secure file encryption
+    - Includes authentication tag for integrity
+    - Handles binary data securely
+
+3. **Digital Signatures**
+
+    - Verifying the authenticity of data
+
+4. **Auth Token Encryption**
+
+    - Creates and verifies encrypted JWT tokens
+    - Best for: Session management, API authentication
 
 ### Common Algorithms
 
 -   AES (Symmetric)
 -   RSA (Asymmetric)
 -   ChaCha20 (Symmetric)
+-   ECC (Asymmetric)
+
+### Best Practices
+
+- Secure key storage
+- Regular key rotation
+- Use standard algorithms by following industry recommendations
+- Avoid deprecated algorithms
+- User initialization vectors (IVs)
 
 ## Hashing
 
-### Characteristics
+Hashing is a one-way function that converts input data of any size into a fixed-size output. _**It's designed for integrity checking**_ and cannot be reversed.
 
--   One-way function
--   Fixed-size output
--   Deterministic
--   Avalanche effect
+### Use Cases
+
+1. **Password Storage**
+
+    - Securely store passwords in databases
+    - Protects against data breaches
+
+2. **Data Integrity Verification**
+
+    - Verify data integrity during transmission
+    - Ensure data hasn't been tampered with
+    - Best for: File checksums, digital signatures
+
+3. **Data Deduplication**
+
+    - Identify duplicate data without storing the original data
+    - Best for: caching
+
+4. **Blockchain**
+
+    - Hashing is used to create blocks in blockchain
+    - Ensures data integrity and immutability
 
 ### Common Algorithms
 
@@ -88,116 +196,16 @@
     - SHA-256, SHA-512
     - Blake2, Blake3
 
-    ```javascript
-    const hash = crypto.createHash('sha256').update('password123').digest('hex')
-    ```
-
 2. **Password Hashing**
     - Argon2
     - bcrypt
     - PBKDF2
-    ```javascript
-    const bcrypt = require('bcrypt')
-    const hashedPassword = await bcrypt.hash('password123', 10)
-    ```
 
-## HTTPS
-
-### TLS/SSL Protocol
-
-1. **Handshake Process**
-
-    - Client Hello
-    - Server Hello
-    - Certificate Exchange
-    - Key Exchange
-    - Secure Communication
-
-2. **Certificate Components**
-    - Subject
-    - Issuer
-    - Public Key
-    - Digital Signature
-    - Validity Period
-
-### Implementation
-
-```javascript
-const https = require('https')
-const fs = require('fs')
-
-const options = {
-    key: fs.readFileSync('private-key.pem'),
-    cert: fs.readFileSync('certificate.pem'),
-}
-
-https
-    .createServer(options, (req, res) => {
-        res.writeHead(200)
-        res.end('Secure Hello World!')
-    })
-    .listen(443)
-```
-
-## Best Practices
-
-### Encryption
-
-1. **Key Management**
-
-    - Secure key storage
-    - Regular key rotation
-    - Proper key length
-
-2. **Algorithm Selection**
-    - Use standard algorithms
-    - Avoid deprecated algorithms
-    - Follow industry recommendations
-
-### Password Storage
-
-1. **Never store plain passwords**
-2. **Use strong hashing algorithms**
-3. **Implement proper salting**
-4. **Use appropriate work factors**
-
-### HTTPS Implementation
-
-1. **Force HTTPS**
-
-    ```javascript
-    app.use((req, res, next) => {
-        if (!req.secure) {
-            return res.redirect(`https://${req.headers.host}${req.url}`)
-        }
-        next()
-    })
-    ```
-
-2. **Security Headers**
-    ```javascript
-    app.use((req, res, next) => {
-        res.setHeader('Strict-Transport-Security', 'max-age=31536000')
-        next()
-    })
-    ```
-
-## Demo Instructions
-
-The accompanying `index.html` and `server.js` files demonstrate:
-
-1. Password hashing and verification
-2. Data encryption/decryption
-3. HTTPS server setup
-4. Security headers implementation
-
-Check the demo files to see these security concepts in action.
-
-## Comparison Table
+## Comparison
 
 | Feature          | Encoding                                                                 | Encryption                                                    | Hashing                                                        |
 | ---------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------- | -------------------------------------------------------------- |
-| **Purpose**      | Data format conversion                                                   | Data confidentiality                                          | Data integrity & verification                                  |
+| **Purpose**      | Data compatibility                                                | Data confidentiality                                          | Data integrity & verification                                  |
 | **Reversible**   | Yes (easily)                                                             | Yes (with key)                                                | No                                                             |
 | **Key Required** | No                                                                       | Yes                                                           | No                                                             |
 | **Output**       | Variable length                                                          | Variable length                                               | Fixed length                                                   |
@@ -206,5 +214,3 @@ Check the demo files to see these security concepts in action.
 | **Examples**     | - Base64<br>- URL encoding<br>- ASCII                                    | - AES<br>- RSA<br>- ChaCha20                                  | - SHA-256<br>- bcrypt<br>- Argon2                              |
 | **Performance**  | Fast                                                                     | Moderate to Slow                                              | Fast to Moderate                                               |
 | **Use When**     | Need to represent data in a different format                             | Need to keep data secret and retrieve it later                | Need to verify data integrity or store passwords               |
-
-Check the demo files to see these security concepts in action.
