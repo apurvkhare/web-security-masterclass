@@ -1,371 +1,144 @@
 <!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>SQL Injection Demo</title>
-        <style>
-            body {
-                font-family: Arial, sans-serif;
-                max-width: 1200px;
-                margin: 0 auto;
-                padding: 20px;
-            }
-            .container {
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 20px;
-            }
-            .demo-section {
-                margin-bottom: 30px;
-                padding: 20px;
-                border: 1px solid #ddd;
-                border-radius: 5px;
-            }
-            .vulnerable {
-                background-color: #ffe6e6;
-            }
-            .secure {
-                background-color: #e6ffe6;
-            }
-            .result {
-                margin-top: 10px;
-                padding: 10px;
-                background-color: #f5f5f5;
-                border-radius: 3px;
-                white-space: pre-wrap;
-            }
-            .warning {
-                color: red;
-                font-weight: bold;
-            }
-            form {
-                margin: 15px 0;
-            }
-            input,
-            select {
-                width: 200px;
-                padding: 8px;
-                margin: 5px 0;
-            }
-            button {
-                padding: 8px 15px;
-                background-color: #007bff;
-                color: white;
-                border: none;
-                border-radius: 3px;
-                cursor: pointer;
-            }
-            button:hover {
-                background-color: #0056b3;
-            }
-            .tabs {
-                margin-bottom: 20px;
-            }
-            .tab {
-                padding: 10px 20px;
-                border: none;
-                background: #f0f0f0;
-                cursor: pointer;
-            }
-            .tab.active {
-                background: #007bff;
-                color: white;
-            }
-            .tab-content {
-                display: none;
-            }
-            .tab-content.active {
-                display: block;
-            }
-        </style>
-    </head>
-    <body>
-        <h1>SQL/NoSQL Injection Demo</h1>
-        <p class="warning">
-            Warning: This page contains intentionally vulnerable implementations
-            for educational purposes!
-        </p>
+<html>
+<head>
+    <title>Blog System - SQL Injection Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .warning {
+            background-color: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        pre {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .attack-example {
+            color: #d32f2f;
+            font-family: monospace;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="warning">
+        ⚠️ This is a demonstration of SQL Injection vulnerabilities. DO NOT use this code in production!
+    </div>
 
-        <div class="tabs">
-            <button class="tab active" onclick="showTab('sql')">
-                SQL Injection
-            </button>
-            <button class="tab" onclick="showTab('nosql')">
-                NoSQL Injection
-            </button>
+    <!-- Login Form - Always True Attack -->
+    <div class="section">
+        <h2>Login</h2>
+        <p>Try this attack: <span class="attack-example">admin' OR '1'='1</span></p>
+        
+        <div class="input-group">
+            <label for="username">Username:</label>
+            <input type="text" id="username" placeholder="Username">
         </div>
-
-        <!-- SQL Injection Demos -->
-        <div id="sql-content" class="tab-content active">
-            <div class="container">
-                <!-- Authentication Bypass -->
-                <div class="demo-section vulnerable">
-                    <h2>Vulnerable Login (SQL)</h2>
-                    <p>Try: username: <code>admin' --</code></p>
-                    <form id="unsafe-login">
-                        <div>
-                            <input
-                                type="text"
-                                name="username"
-                                placeholder="Username"
-                            />
-                        </div>
-                        <div>
-                            <input
-                                type="password"
-                                name="password"
-                                placeholder="Password"
-                            />
-                        </div>
-                        <button type="submit">Login (Unsafe)</button>
-                    </form>
-                    <div id="unsafe-login-result" class="result"></div>
-                </div>
-
-                <div class="demo-section secure">
-                    <h2>Secure Login (SQL)</h2>
-                    <form id="safe-login">
-                        <div>
-                            <input
-                                type="text"
-                                name="username"
-                                placeholder="Username"
-                            />
-                        </div>
-                        <div>
-                            <input
-                                type="password"
-                                name="password"
-                                placeholder="Password"
-                            />
-                        </div>
-                        <button type="submit">Login (Safe)</button>
-                    </form>
-                    <div id="safe-login-result" class="result"></div>
-                </div>
-
-                <!-- Data Exfiltration -->
-                <div class="demo-section vulnerable">
-                    <h2>Vulnerable Search (SQL)</h2>
-                    <p>
-                        Try:
-                        <code
-                            >1' UNION SELECT username, password FROM
-                            users--</code
-                        >
-                    </p>
-                    <form id="unsafe-search">
-                        <div>
-                            <input
-                                type="text"
-                                name="query"
-                                placeholder="Search products"
-                            />
-                        </div>
-                        <button type="submit">Search (Unsafe)</button>
-                    </form>
-                    <div id="unsafe-search-result" class="result"></div>
-                </div>
-
-                <div class="demo-section secure">
-                    <h2>Secure Search (SQL)</h2>
-                    <form id="safe-search">
-                        <div>
-                            <input
-                                type="text"
-                                name="query"
-                                placeholder="Search products"
-                            />
-                        </div>
-                        <button type="submit">Search (Safe)</button>
-                    </form>
-                    <div id="safe-search-result" class="result"></div>
-                </div>
-
-                <!-- Query Stacking -->
-                <div class="demo-section vulnerable">
-                    <h2>Vulnerable Update (SQL)</h2>
-                    <p>Try: <code>1; DROP TABLE products--</code></p>
-                    <form id="unsafe-update">
-                        <div>
-                            <input
-                                type="text"
-                                name="id"
-                                placeholder="Product ID"
-                            />
-                        </div>
-                        <div>
-                            <input
-                                type="text"
-                                name="name"
-                                placeholder="New Name"
-                            />
-                        </div>
-                        <button type="submit">Update (Unsafe)</button>
-                    </form>
-                    <div id="unsafe-update-result" class="result"></div>
-                </div>
-
-                <div class="demo-section secure">
-                    <h2>Secure Update (SQL)</h2>
-                    <form id="safe-update">
-                        <div>
-                            <input
-                                type="text"
-                                name="id"
-                                placeholder="Product ID"
-                            />
-                        </div>
-                        <div>
-                            <input
-                                type="text"
-                                name="name"
-                                placeholder="New Name"
-                            />
-                        </div>
-                        <button type="submit">Update (Safe)</button>
-                    </form>
-                    <div id="safe-update-result" class="result"></div>
-                </div>
-            </div>
+        <div class="input-group">
+            <label for="password">Password:</label>
+            <input type="password" id="password" placeholder="Password">
         </div>
+        <button onclick="login()">Login</button>
+        <pre id="loginResult"></pre>
+    </div>
 
-        <!-- NoSQL Injection Demos -->
-        <div id="nosql-content" class="tab-content">
-            <div class="container">
-                <!-- Authentication Bypass -->
-                <div class="demo-section vulnerable">
-                    <h2>Vulnerable Login (NoSQL)</h2>
-                    <p>
-                        Try: username: <code>admin</code>, password:
-                        <code>{"$ne": null}</code>
-                    </p>
-                    <form id="unsafe-mongo-login">
-                        <div>
-                            <input
-                                type="text"
-                                name="username"
-                                placeholder="Username"
-                            />
-                        </div>
-                        <div>
-                            <input
-                                type="text"
-                                name="password"
-                                placeholder="Password"
-                            />
-                        </div>
-                        <button type="submit">Login (Unsafe)</button>
-                    </form>
-                    <div id="unsafe-mongo-result" class="result"></div>
-                </div>
-
-                <div class="demo-section secure">
-                    <h2>Secure Login (NoSQL)</h2>
-                    <form id="safe-mongo-login">
-                        <div>
-                            <input
-                                type="text"
-                                name="username"
-                                placeholder="Username"
-                            />
-                        </div>
-                        <div>
-                            <input
-                                type="password"
-                                name="password"
-                                placeholder="Password"
-                            />
-                        </div>
-                        <button type="submit">Login (Safe)</button>
-                    </form>
-                    <div id="safe-mongo-result" class="result"></div>
-                </div>
-
-                <!-- Query Operator Injection -->
-                <div class="demo-section vulnerable">
-                    <h2>Vulnerable Query (NoSQL)</h2>
-                    <p>Try: <code>{"$regex": "admin.*"}</code></p>
-                    <form id="unsafe-mongo-query">
-                        <div>
-                            <input
-                                type="text"
-                                name="role"
-                                placeholder="Search by role"
-                            />
-                        </div>
-                        <button type="submit">Search (Unsafe)</button>
-                    </form>
-                    <div id="unsafe-mongo-query-result" class="result"></div>
-                </div>
-
-                <div class="demo-section secure">
-                    <h2>Secure Query (NoSQL)</h2>
-                    <form id="safe-mongo-query">
-                        <div>
-                            <input
-                                type="text"
-                                name="role"
-                                placeholder="Search by role"
-                            />
-                        </div>
-                        <button type="submit">Search (Safe)</button>
-                    </form>
-                    <div id="safe-mongo-query-result" class="result"></div>
-                </div>
-            </div>
+    <!-- Search Form - Query Stacking -->
+    <div class="section">
+        <h2>Search Posts</h2>
+        <p>Try this attack: <span class="attack-example">test'; DROP TABLE blog_posts; --</span></p>
+        
+        <div class="input-group">
+            <label for="searchKeyword">Search Keyword:</label>
+            <input type="text" id="searchKeyword" placeholder="Enter keyword...">
         </div>
+        <button onclick="searchPosts()">Search</button>
+        <pre id="searchResults"></pre>
+    </div>
 
-        <script>
-            const API_BASE = 'http://localhost:3000'
+    <!-- Profile View - Data Exfiltration -->
+    <div class="section">
+        <h2>View Profile</h2>
+        <p>Try this attack: <span class="attack-example">admin' UNION SELECT credit_card, api_key FROM users WHERE '1'='1</span></p>
+        
+        <div class="input-group">
+            <label for="profileUsername">Username:</label>
+            <input type="text" id="profileUsername" placeholder="Enter username...">
+        </div>
+        <button onclick="viewProfile()">View Profile</button>
+        <pre id="profileResult"></pre>
+    </div>
 
-            // Tab handling
-            function showTab(tabId) {
-                document.querySelectorAll('.tab-content').forEach(content => {
-                    content.classList.remove('active')
-                })
-                document.querySelectorAll('.tab').forEach(tab => {
-                    tab.classList.remove('active')
-                })
-                document
-                    .getElementById(`${tabId}-content`)
-                    .classList.add('active')
-                document
-                    .querySelector(`[onclick="showTab('${tabId}')"]`)
-                    .classList.add('active')
-            }
+    <script>
+        async function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            const response = await fetch('/api/secure/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            
+            const result = await response.json();
+            document.getElementById('loginResult').textContent = 
+                JSON.stringify(result, null, 2);
+        }
 
-            // SQL Injection demos
-            document
-                .getElementById('unsafe-login')
-                .addEventListener('submit', async e => {
-                    e.preventDefault()
-                    const formData = new FormData(e.target)
-                    const response = await fetch(
-                        `${API_BASE}/api/unsafe/login`,
-                        {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                username: formData.get('username'),
-                                password: formData.get('password'),
-                            }),
-                        }
-                    )
-                    const result = await response.json()
-                    document.getElementById('unsafe-login-result').textContent =
-                        JSON.stringify(result, null, 2)
-                })
+        async function searchPosts() {
+            const keyword = document.getElementById('searchKeyword').value;
+            const response = await fetch(`/api/posts/search?keyword=${encodeURIComponent(keyword)}`);
+            const result = await response.json();
+            document.getElementById('searchResults').textContent = 
+                JSON.stringify(result, null, 2);
+        }
 
-            // ... similar handlers for other forms ...
-
-            // Initialize demo data
-            async function initializeData() {
-                await fetch(`${API_BASE}/api/initialize`, { method: 'POST' })
-            }
-
-            window.onload = initializeData
-        </script>
-    </body>
+        async function viewProfile() {
+            const username = document.getElementById('profileUsername').value;
+            const response = await fetch(`/api/users/profile?username=${encodeURIComponent(username)}`);
+            const result = await response.json();
+            document.getElementById('profileResult').textContent = 
+                JSON.stringify(result, null, 2);
+        }
+    </script>
+</body>
 </html>

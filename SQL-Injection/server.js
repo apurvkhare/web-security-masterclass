@@ -1,273 +1,150 @@
-const express = require('express')
-const cors = require('cors')
-const sqlite3 = require('sqlite3').verbose()
-const mongoose = require('mongoose')
-const bcrypt = require('bcrypt')
+// server.js
+const express = require('express');
+const sqlite3 = require('sqlite3');
+const path = require('path');
+const app = express();
 
-const app = express()
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static('public'));
 
-// Middleware
-app.use(cors())
-app.use(express.json())
+const db = new sqlite3.Database(':memory:');
 
-// Initialize SQLite database
-const db = new sqlite3.Database(':memory:')
+// Database initialization
+db.serialize(async () => {
+  // Users table with sensitive information
+  db.run(`CREATE TABLE users (
+    id INTEGER PRIMARY KEY,
+    username TEXT UNIQUE,
+    password TEXT,
+    email TEXT,
+    is_admin BOOLEAN DEFAULT 0,
+    credit_card TEXT,
+    api_key TEXT
+  )`);
 
-// Initialize MongoDB
-mongoose.connect('mongodb://localhost:27017/sqli_demo', {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-})
+  // Blog posts table
+  db.run(`CREATE TABLE blog_posts (
+    id INTEGER PRIMARY KEY,
+    user_id INTEGER,
+    title TEXT,
+    content TEXT,
+    is_private BOOLEAN DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(user_id) REFERENCES users(id)
+  )`);
 
-// MongoDB Schema
-const UserSchema = new mongoose.Schema({
-    username: String,
-    password: String,
-    role: String,
-})
+  // Insert sample data
+  db.run(`INSERT INTO users (username, password, email, is_admin, credit_card, api_key) VALUES 
+    ('admin', 'admin123', 'admin@blog.com', 1, '4532-xxxx-xxxx-9876', 'sk_live_admin_123456'),
+    ('tony', 'tony123', 'tony@blog.com', 0, '4532-xxxx-xxxx-5678', 'sk_live_user_123456')`);
 
-const User = mongoose.model('User', UserSchema)
+  db.run(`INSERT INTO blog_posts (user_id, title, content, is_private) VALUES
+    (1, 'Welcome Post', 'Welcome to our blog!', 0),
+    (1, 'Private Admin Notes', 'Secret admin information...', 1),
+    (2, 'Tony Public Post', 'Hello everyone!', 0)`);
+});
 
-// Initialize databases
-async function initializeDatabases() {
-    // SQLite setup
-    db.serialize(() => {
-        // Users table
-        db.run(`CREATE TABLE users (
-            id INTEGER PRIMARY KEY,
-            username TEXT,
-            password TEXT,
-            role TEXT
-        )`)
 
-        // Products table
-        db.run(`CREATE TABLE products (
-            id INTEGER PRIMARY KEY,
-            name TEXT,
-            price REAL
-        )`)
+// Serve static files from the 'public' directory
+app.use(express.static(path.join(__dirname)));
 
-        // Insert demo data
-        db.run(`INSERT INTO users (username, password, role) VALUES 
-            ('admin', 'admin123', 'admin'),
-            ('user', 'user123', 'user')`)
+// Vulnerable Routes
 
-        db.run(`INSERT INTO products (name, price) VALUES 
-            ('Laptop', 999.99),
-            ('Phone', 599.99),
-            ('Tablet', 299.99)`)
-    })
+// 1. Login - Vulnerable to "always true" attack
+app.post('/api/login', (req, res) => {
+  const { username, password } = req.body;
+  
+  // Vulnerable: Direct string concatenation
+  const query = `
+    SELECT id, username, is_admin, email 
+    FROM users 
+    WHERE username = '${username}' 
+    AND password = '${password}'
+  `;
+  
+  db.get(query, (err, user) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+    res.json(user);
+  });
+});
 
-    // MongoDB setup
-    await User.deleteMany({})
-    await User.insertMany([
-        {
-            username: 'admin',
-            password: await bcrypt.hash('admin123', 10),
-            role: 'admin',
-        },
-        {
-            username: 'user',
-            password: await bcrypt.hash('user123', 10),
-            role: 'user',
-        },
-    ])
-}
+// 2. Search Posts - Vulnerable to query stacking
+app.get('/api/posts/search', (req, res) => {
+  const { keyword } = req.query;
+  
+  // Vulnerable: Allows multiple queries
+  const query = `
+    SELECT id, title, content 
+    FROM blog_posts 
+    WHERE content LIKE 'test'; DROP TABLE blog_posts; --';
+  `;
 
-// Initialize route
-app.post('/api/initialize', async (req, res) => {
-    await initializeDatabases()
-    res.json({ message: 'Databases initialized' })
-})
+  db.all(query, (err, results) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(results || []);
+  });
 
-// SQL Injection vulnerable endpoints
-app.post('/api/unsafe/login', (req, res) => {
-    const { username, password } = req.body
+  db.exec(query, (err) => {
+    if (err) return res.status(500).json({ error: err.message });
+  });
+});
 
-    // Vulnerable to SQL injection
+// 3. User Profile - Vulnerable to data exfiltration
+app.get('/api/users/profile', (req, res) => {
+  const { username } = req.query;
+  
+  // Vulnerable: Allows UNION-based attacks
+  const query = `
+    SELECT username, email 
+    FROM users 
+    WHERE username = 'admin' UNION SELECT credit_card, api_key FROM users WHERE '1'='1'
+  `;
+  
+  db.get(query, (err, user) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json(user);
+  });
+});
+
+//secure route
+app.post('/api/secure/login', async (req, res) => {
+  const { username, password } = req.body;
+  
+  // Input validation
+  if (!username || !password || 
+      typeof username !== 'string' || 
+      typeof password !== 'string') {
+    return res.status(400).json({ error: 'Invalid input' });
+  }
+  
+  try {
+    // Use parameterized query
     const query = `
-        SELECT * FROM users 
-        WHERE username = '${username}' 
-        AND password = '${password}'
-    `
+      SELECT id, username, is_admin, email, password
+      FROM users 
+      WHERE username = ?
+    `;
+    
+    db.get(query, [username], async (err, user) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      if (!user) return res.status(401).json({ error: 'Invalid credentials' });
 
-    db.get(query, (err, row) => {
-        if (err) return res.status(500).json({ error: err.message })
-        if (!row) return res.status(401).json({ error: 'Invalid credentials' })
-        res.json({ success: true, user: row })
-    })
-})
+      if (password !== user.password) {
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
+      
+      // Don't send sensitive data
+      delete user.password;
+      res.json(user);
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
-app.get('/api/unsafe/search', (req, res) => {
-    const { query } = req.query
-
-    // Vulnerable to UNION-based attacks
-    const sql = `
-        SELECT name, price FROM products 
-        WHERE name LIKE '%${query}%'
-    `
-
-    db.all(sql, (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message })
-        res.json({ results: rows })
-    })
-})
-
-app.post('/api/unsafe/update', (req, res) => {
-    const { id, name } = req.body
-
-    // Vulnerable to query stacking
-    const query = `
-        UPDATE products 
-        SET name = '${name}' 
-        WHERE id = ${id}
-    `
-
-    db.exec(query, err => {
-        if (err) return res.status(500).json({ error: err.message })
-        res.json({ success: true })
-    })
-})
-
-// SQL Injection safe endpoints
-app.post('/api/safe/login', (req, res) => {
-    const { username, password } = req.body
-
-    // Safe: Using parameterized query
-    const query = `
-        SELECT * FROM users 
-        WHERE username = ? AND password = ?
-    `
-
-    db.get(query, [username, password], (err, row) => {
-        if (err) return res.status(500).json({ error: 'Invalid request' })
-        if (!row) return res.status(401).json({ error: 'Invalid credentials' })
-        res.json({ success: true, user: row })
-    })
-})
-
-app.get('/api/safe/search', (req, res) => {
-    const { query } = req.query
-
-    // Safe: Using parameterized query and input validation
-    if (!query.match(/^[a-zA-Z0-9\s]+$/)) {
-        return res.status(400).json({ error: 'Invalid search query' })
-    }
-
-    db.all(
-        'SELECT name, price FROM products WHERE name LIKE ?',
-        [`%${query}%`],
-        (err, rows) => {
-            if (err) return res.status(500).json({ error: 'Search failed' })
-            res.json({ results: rows })
-        }
-    )
-})
-
-app.post('/api/safe/update', (req, res) => {
-    const { id, name } = req.body
-
-    // Safe: Using parameterized query and type checking
-    if (!Number.isInteger(Number(id)) || typeof name !== 'string') {
-        return res.status(400).json({ error: 'Invalid input' })
-    }
-
-    db.run(
-        'UPDATE products SET name = ? WHERE id = ?',
-        [name, id],
-        function (err) {
-            if (err) return res.status(500).json({ error: 'Update failed' })
-            res.json({ success: true, changes: this.changes })
-        }
-    )
-})
-
-// NoSQL Injection vulnerable endpoints
-app.post('/api/unsafe/mongo/login', async (req, res) => {
-    try {
-        // Vulnerable to NoSQL injection
-        const user = await User.findOne(req.body)
-
-        if (!user) {
-            return res.status(401).json({ error: 'Invalid credentials' })
-        }
-
-        res.json({
-            success: true,
-            user: { username: user.username, role: user.role },
-        })
-    } catch (error) {
-        res.status(500).json({ error: error.message })
-    }
-})
-
-app.get('/api/unsafe/mongo/search', async (req, res) => {
-    try {
-        // Vulnerable to operator injection
-        const users = await User.find({ role: req.query.role })
-        res.json({
-            users: users.map(u => ({ username: u.username, role: u.role })),
-        })
-    } catch (error) {
-        res.status(500).json({ error: error.message })
-    }
-})
-
-// NoSQL Injection safe endpoints
-app.post('/api/safe/mongo/login', async (req, res) => {
-    try {
-        const { username, password } = req.body
-
-        // Safe: Using exact field matching and proper password comparison
-        const user = await User.findOne({ username: String(username) })
-
-        if (!user || !(await bcrypt.compare(password, user.password))) {
-            return res.status(401).json({ error: 'Invalid credentials' })
-        }
-
-        res.json({
-            success: true,
-            user: { username: user.username, role: user.role },
-        })
-    } catch (error) {
-        res.status(500).json({ error: 'Login failed' })
-    }
-})
-
-app.get('/api/safe/mongo/search', async (req, res) => {
-    try {
-        const { role } = req.query
-
-        // Safe: Using schema validation and sanitization
-        if (!role.match(/^[a-zA-Z]+$/)) {
-            return res.status(400).json({ error: 'Invalid role format' })
-        }
-
-        const users = await User.find({ role: String(role) })
-        res.json({
-            users: users.map(u => ({ username: u.username, role: u.role })),
-        })
-    } catch (error) {
-        res.status(500).json({ error: 'Search failed' })
-    }
-})
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-    console.error(err.stack)
-    res.status(500).json({
-        error: 'Something went wrong!',
-        details:
-            process.env.NODE_ENV === 'development' ? err.message : undefined,
-    })
-})
-
-// Start server
-const PORT = process.env.PORT || 3000
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`)
-    console.log(
-        'Warning: Contains vulnerable endpoints for educational purposes!'
-    )
-    initializeDatabases()
-})
+app.listen(3000, () => {
+  console.log('Vulnerable server running on port 3000');
+});
