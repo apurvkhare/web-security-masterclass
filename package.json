@@ -11,7 +11,10 @@
     "bcrypt": "^5.1.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
+    "escape-html": "^1.0.3",
     "express": "^4.21.2",
-    "nodemon": "^3.1.9"
+    "nodemon": "^3.1.9",
+    "sanitize-html": "^2.14.0",
+    "sqlite3": "^5.1.7"
   }
 }
